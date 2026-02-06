@@ -26,8 +26,9 @@ const Login = () => {
       if (state === 'Sign Up') {
         const { data } = await axios.post(
           `${backendUrl}/api/auth/register`,
-          { name, email, password }
-        )
+          { name, email, password },
+          { withCredentials: true }   // ✅ VERY IMPORTANT
+        );
 
         if (data.success) {
           setIsLoggedin(true)
@@ -40,8 +41,9 @@ const Login = () => {
       } else {
         const { data } = await axios.post(
           `${backendUrl}/api/auth/login`,
-          { email, password }
-        )
+          { email, password },
+          { withCredentials: true }   // ✅ VERY IMPORTANT
+        );
 
         if (data.success) {
           setIsLoggedin(true)
