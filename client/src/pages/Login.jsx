@@ -4,6 +4,9 @@ import { AppContent } from '../context/Appcontext'
 import { toast } from 'react-toastify'
 import axios from 'axios'
 
+// ✅ BUG FIX 3: global (ek baar)
+axios.defaults.withCredentials = true
+
 const Login = () => {
 
   const navigate = useNavigate()
@@ -12,13 +15,14 @@ const Login = () => {
   const [state, setState] = useState('Sign Up')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassowrd] = useState('')
+
+  // ✅ BUG FIX 1: typo fixed
+  const [password, setPassword] = useState('')
 
   const onSubmitHandler = async (e) => {
-    try {
-      e.preventDefault()
-      axios.defaults.withCredentials = true
+    e.preventDefault()
 
+    try {
       if (state === 'Sign Up') {
         const { data } = await axios.post(
           `${backendUrl}/api/auth/register`,
@@ -27,7 +31,7 @@ const Login = () => {
 
         if (data.success) {
           setIsLoggedin(true)
-          getUserData();
+          await getUserData()
           navigate('/')
         } else {
           toast.error(data.message)
@@ -41,7 +45,7 @@ const Login = () => {
 
         if (data.success) {
           setIsLoggedin(true)
-          getUserData();
+          await getUserData()
           navigate('/')
         } else {
           toast.error(data.message)
@@ -49,7 +53,7 @@ const Login = () => {
       }
 
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.response?.data?.message || error.message)
     }
   }
 
@@ -79,18 +83,7 @@ const Login = () => {
 
           {state === 'Sign Up' && (
             <div className="mb-4 flex items-center gap-3 w-full px-5 py-3
-            rounded-full bg-[#333A5C] border border-white/10
-            focus-within:border-indigo-400 focus-within:bg-[#3b4270]
-            transition-all duration-200">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                viewBox="0 0 24 24" strokeWidth={1.5}
-                stroke="currentColor" className="w-5 h-5 text-gray-300">
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M15.75 7.5a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M4.5 20.25a7.5 7.5 0 0115 0" />
-              </svg>
-
+            rounded-full bg-[#333A5C] border border-white/10">
               <input
                 onChange={e => setName(e.target.value)}
                 value={name}
@@ -103,16 +96,7 @@ const Login = () => {
           )}
 
           <div className="mb-4 flex items-center gap-3 w-full px-5 py-3
-            rounded-full bg-[#333A5C] border border-white/10
-            focus-within:border-indigo-400 focus-within:bg-[#3b4270]
-            transition-all duration-200">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-              viewBox="0 0 24 24" strokeWidth={1.5}
-              stroke="currentColor" className="w-5 h-5 text-gray-300">
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M21.75 6.75v10.5A2.25 2.25 0 0119.5 19.5h-15A2.25 2.25 0 012.25 17.25V6.75m19.5 0L12 13.5 2.25 6.75" />
-            </svg>
-
+            rounded-full bg-[#333A5C] border border-white/10">
             <input
               onChange={e => setEmail(e.target.value)}
               value={email}
@@ -124,18 +108,9 @@ const Login = () => {
           </div>
 
           <div className="mb-4 flex items-center gap-3 w-full px-5 py-3
-            rounded-full bg-[#333A5C] border border-white/10
-            focus-within:border-indigo-400 focus-within:bg-[#3b4270]
-            transition-all duration-200">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-              viewBox="0 0 24 24" strokeWidth={1.5}
-              stroke="currentColor" className="w-5 h-5 text-gray-300">
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M16.5 10.5V7.875a4.5 4.5 0 10-9 0V10.5m-.75 0h10.5A1.5 1.5 0 0118.25 12v6.75A1.5 1.5 0 0116.75 20.25H7.25A1.5 1.5 0 015.75 18.75V12A1.5 1.5 0 017.25 10.5z" />
-            </svg>
-
+            rounded-full bg-[#333A5C] border border-white/10">
             <input
-              onChange={e => setPassowrd(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               value={password}
               type="password"
               placeholder="Password"
@@ -143,20 +118,20 @@ const Login = () => {
               className="bg-transparent outline-none text-white w-full placeholder-gray-300"
             />
           </div>
+
+          {/* ✅ BUG FIX 2: button sirf submit */}
+          <button
+            type="submit"
+            className='w-full py-2.5 rounded-full bg-gradient-to-r
+            from-indigo-500 to-indigo-900 text-white font-medium'>
+            {state}
+          </button>
         </form>
 
         <p onClick={() => navigate('/reset-password')}
           className='mb-4 text-indigo-500 cursor-pointer'>
           Forgot Password
         </p>
-
-        <button
-          type="submit"
-          onClick={onSubmitHandler}
-          className='w-full py-2.5 rounded-full bg-gradient-to-r
-          from-indigo-500 to-indigo-900 text-white font-medium'>
-          {state}
-        </button>
 
         {state === 'Sign Up' ? (
           <p className='text-gray-500 text-center text-xs mt-4'>
