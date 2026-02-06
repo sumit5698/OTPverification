@@ -1,36 +1,36 @@
 import jwt from "jsonwebtoken";
 
-const userAuth = (req, res, next) => {
+import userModel from "../models/userModel.js";
+
+export const getUserData = async (req, res) => {
   try {
-    const token = req.cookies?.token;
+    const userId = req.userId; // ✅ middleware se
 
-    if (!token) {
+    if (!userId) {
       return res.status(401).json({
         success: false,
         message: "Not Authorized. Login Again",
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await userModel.findById(userId).select("-password");
 
-    if (!decoded?.id) {
-      return res.status(401).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Not Authorized. Login Again",
+        message: "User not found",
       });
     }
 
-    // ✅ BEST PRACTICE: attach userId to req (NOT body)
-    req.userId = decoded.id;
-
-    next();
+    res.json({
+      success: true,
+      userData: user,
+    });
 
   } catch (error) {
-    return res.status(401).json({
+    res.status(500).json({
       success: false,
-      message: "Not Authorized. Login Again",
+      message: error.message,
     });
   }
 };
-
-export default userAuth;
