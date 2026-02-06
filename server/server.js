@@ -17,7 +17,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: ["https://host-r222.onrender.com", "https://login-xuh4.onrender.com"],
+    origin: ["https://host-r222.onrender.com","https://login-xuh4.onrender.com","ttp://localhost:5173"],
     credentials: true,
   })
 );
