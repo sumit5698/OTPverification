@@ -7,24 +7,34 @@ export const AppContent = createContext();
 const AppContextProvider = ({ children }) => {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
   const [isLoggedin, setIsLoggedin] = useState(false);
-  const [userData, setUserData] = useState(false);
+  const [userData, setUserData] = useState(null);
 
-  const getAuthstate = async ()=>{
+  // ✅ FIX 1: function name corrected
+  const getAuthState = async () => {
     try {
-        const {data}= await axios.get(backendUrl + '/api/auth/is-auth',{withCredentials:true})
-        if(data.success){
-            setIsLoggedin(true)
-            getUserData()
-        }
-    } catch (error) {
-        toast.error(error.message)
-    }
-  }
+      const { data } = await axios.get(
+        `${backendUrl}/api/auth/is-auth`,
+        { withCredentials: true }
+      );
 
-  useEffect(()=>{
-    getAuthstate();
-  },[])
+      if (data.success) {
+        setIsLoggedin(true);
+        getUserData(); // ✅ auth confirmed, now fetch user
+      } else {
+        setIsLoggedin(false);
+      }
+
+    } catch (error) {
+      setIsLoggedin(false);
+    }
+  };
+
+  // ✅ FIX 2: correct function call
+  useEffect(() => {
+    getAuthState();
+  }, []);
 
   const getUserData = async () => {
     try {
@@ -33,13 +43,14 @@ const AppContextProvider = ({ children }) => {
         { withCredentials: true }
       );
 
-      data.success
-        ? setUserData(data.userData)
-        : toast.error(data.message);
+      if (data.success) {
+        setUserData(data.userData);
+      } else {
+        toast.error(data.message);
+      }
 
     } catch (error) {
-        setIsLoggedin(false)
-      toast.error(error.message);
+      setIsLoggedin(false);
     }
   };
 
@@ -49,7 +60,7 @@ const AppContextProvider = ({ children }) => {
     setIsLoggedin,
     userData,
     setUserData,
-    getUserData   // ✅ VERY IMPORTANT
+    getUserData,
   };
 
   return (
