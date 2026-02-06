@@ -15,7 +15,7 @@ connectDB();
 
 
 
-const allowedOrigin = ['http://localhost:5173']
+const allowedOrigin = ['https;//ot-pverification-fvdl.vercel.app','https://https://ot-pverification-six.vercel.app']
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({origin: allowedOrigin,credentials: true}));
