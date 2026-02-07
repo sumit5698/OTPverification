@@ -1,38 +1,54 @@
-import React, { useContext } from 'react'
-import { AppContent } from '../context/Appcontext'
+// components/Header.js
+import React, { useState } from 'react';
 
 const Header = () => {
-    const {userData} = useContext(AppContent)
+  const [showSurprise, setShowSurprise] = useState(false);
+
+  const handleClick = () => {
+    setShowSurprise(true);
+    // 3 seconds बाद automatic hide हो जाए
+    setTimeout(() => {
+      setShowSurprise(false);
+    }, 3000);
+  };
 
   return (
-    <div className='flex flex-col items-center mt-20 px-4 text-center text-gray-800'>
-      
-      <div className="rounded-full p-2 mb-6 bg-white/20 backdrop-blur-sm">
-        <img src="/auth.jpg" className='w-36 h-36 rounded-full' alt='' />
-      </div>
-
-      <h1 className='flex items-center gap-2 text-xl sm:text-3xl font-medium mb-2'>
-        Hey  {userData ? userData.name : 'developer'}!
-        <span className="bg-white/20 backdrop-blur-sm rounded-full p-1">
-          <img className='w-8 aspect-square rounded-full' src="/hand.jpg" alt='' />
-        </span>
+    <div className="flex flex-col items-center text-center gap-8 px-6">
+      <h1 className="text-5xl sm:text-7xl font-bold text-gray-800">
+        Discover Amazing Features
       </h1>
-
-      <h2 className='text-3xl sm:text-5xl font-semibold mb-4'>
-        Welcome to our app
-      </h2>
-
-      <p className='mb-8 max-w-md'>
-        let's start with a quick product tour and we will have 
-        you up and running in no time!
+      
+      <p className="text-lg sm:text-xl text-gray-600 max-w-2xl">
+        Join thousands of users who trust our platform for their needs.
       </p>
-
-      <button className='border border-gray-500 rounded-full px-8 py-2.5
-        hover:bg-gray-100 transition-all'>
+      
+      {/* Fixed button with click handler */}
+      <button 
+        className='border border-gray-500 rounded-full px-8 py-2.5 hover:bg-gray-100 transition-all'
+        onClick={handleClick}
+      >
         Get Started
       </button>
-    </div>
-  )
-}
 
-export default Header
+      {/* Middle finger surprise popup */}
+      {showSurprise && (
+        <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50">
+          <img 
+            src="./fin.jpg"
+            alt="Middle Finger"
+            className="max-w-[90%] max-h-[80%] object-contain rounded-lg shadow-2xl"
+          />
+          <p className="text-white text-2xl mt-6 font-bold animate-pulse">तुम्हारे लिए! 😂</p>
+          <button 
+            onClick={() => setShowSurprise(false)}
+            className="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-full"
+          >
+            Close
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Header;
