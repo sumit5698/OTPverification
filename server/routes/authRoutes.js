@@ -1,17 +1,22 @@
-import express from 'express';
-import { isAuthenticated, login, logout, register, resetPassword, sendResetOtp, sendVerityOtp, verifyEmail } from '../controller/authController.js';
-import userAuth from '../middleware/userAuth.js'
+import express from "express";
+import { register, 
+    login, 
+    logout, 
+    isAuthenticated, 
+    sendVerityOtp, 
+    verifyEmail, 
+    sendResetOtp, 
+    resetPassword } from '../controller/authController.js'
 
-const authRouter = express.Router();
+const router = express.Router();
 
-authRouter.post('/register', register);
-authRouter.post('/login', login);
-authRouter.post('/logout', logout);
-authRouter.post('/send-verify-otp', userAuth, sendVerityOtp);
-authRouter.post('/verify-account', userAuth, verifyEmail);
-authRouter.get('/is-auth', userAuth, isAuthenticated);
-authRouter.post('/send-reset-otp', sendResetOtp);
-authRouter.post('/reset-password', resetPassword);
+router.post("/register", register);
+router.post("/login", login);
+router.get("/logout", logout);
+router.get("/is-auth", isAuthenticated); // ✅ This is your is-auth endpoint
+router.post("/send-verify-otp", sendVerityOtp);
+router.post("/verify-email", verifyEmail);
+router.post("/send-reset-otp", sendResetOtp);
+router.post("/reset-password", resetPassword);
 
-
-export default authRouter;
+export default router;

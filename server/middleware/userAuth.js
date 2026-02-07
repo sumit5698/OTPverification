@@ -1,39 +1,44 @@
 import jwt from "jsonwebtoken";
 
-import userModel from "../models/userModel.js";
+const userAuth = async (req, res, next) => {
+    try {
+        // Get token from cookies
+        const token = req.cookies?.token;
+        
+        console.log("🔍 Auth Middleware - Token:", token ? "Found" : "Not found");
 
- const getUserData = async (req, res) => {
-  try {
-    const userId = req.userId; // ✅ middleware se
+        if (!token) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Not authorized. Please login.' 
+            });
+        }
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Not Authorized. Login ",
-      });
+        // Verify token
+        const tokenDecode = jwt.verify(token, process.env.JWT_SECRET || "local-secret-key");
+        
+        // Attach userId to request
+        req.userId = tokenDecode.id;
+        
+        console.log("✅ User authenticated, ID:", req.userId);
+        
+        next();
+        
+    } catch (error) {
+        console.error("❌ Auth error:", error.message);
+        
+        if (error.name === "JsonWebTokenError") {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Invalid token. Please login again.' 
+            });
+        }
+        
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Authentication failed.' 
+        });
     }
-
-    const user = await userModel.findById(userId).select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      userData: user,
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
 };
 
-
-export default getUserData;
+export default userAuth;

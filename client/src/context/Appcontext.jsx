@@ -6,51 +6,75 @@ export const AppContent = createContext();
 
 const AppContextProvider = ({ children }) => {
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  // ✅ Fix: Add default backend URL
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
   const [isLoggedin, setIsLoggedin] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true); // ✅ Add loading state
 
-  // ✅ FIX 1: function name corrected
   const getAuthState = async () => {
     try {
+      console.log("🔄 Checking auth at:", `${backendUrl}/api/auth/is-auth`);
+      
+      // ✅ FIX: Added withCredentials: true
       const { data } = await axios.get(
         `${backendUrl}/api/auth/is-auth`,
-        { withCredentials: true }
+        {
+          withCredentials: true, // ✅ IMPORTANT: Send cookies
+          timeout: 5000 // ✅ Timeout after 5 seconds
+        }
       );
 
-      if (data.success) {
+      console.log("✅ Auth response:", data);
+
+      if (data.success && data.authenticated) {
         setIsLoggedin(true);
         getUserData(); // ✅ auth confirmed, now fetch user
       } else {
         setIsLoggedin(false);
+        setUserData(null);
       }
 
     } catch (error) {
+      console.error("❌ Auth check failed:", error.message);
       setIsLoggedin(false);
+      setUserData(null);
+      
+      // Show error toast
+      if (error.code === 'ERR_NETWORK') {
+        toast.error("Cannot connect to server. Make sure backend is running on port 5000.");
+      }
+    } finally {
+      setLoading(false); // ✅ Stop loading
     }
   };
 
-  // FIX 2: correct function call
   useEffect(() => {
     getAuthState();
   }, []);
 
   const getUserData = async () => {
     try {
+      // ✅ FIX: Added withCredentials: true
       const { data } = await axios.get(
         `${backendUrl}/api/user/data`,
-        { withCredentials: true }
+        {
+          withCredentials: true // ✅ IMPORTANT: Send cookies
+        }
       );
 
       if (data.success) {
         setUserData(data.userData);
       } else {
         toast.error(data.message);
+        setIsLoggedin(false);
       }
 
     } catch (error) {
+      console.error("❌ Get user data failed:", error.message);
       setIsLoggedin(false);
+      setUserData(null);
     }
   };
 
@@ -61,6 +85,8 @@ const AppContextProvider = ({ children }) => {
     userData,
     setUserData,
     getUserData,
+    loading, // ✅ Export loading state
+    getAuthState, // ✅ Export so components can refresh auth
   };
 
   return (

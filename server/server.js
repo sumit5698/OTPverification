@@ -1,3 +1,4 @@
+// server.js or index.js
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
@@ -8,41 +9,41 @@ import userRouter from "./routes/userRoutes.js";
 
 const app = express();
 
-// DB connect
-connectDB();
+// Load environment variables
+if (process.env.NODE_ENV !== "production") {
+    import('dotenv').then(dotenv => dotenv.config());
+}
 
 // Middlewares
 app.use(express.json());
 app.use(cookieParser());
 
-app.use(
-  cors({
-    origin: ["https://host-r222.onrender.com","https://login-xuh4.onrender.com", "https://localhost:5173",
-  "https://127.0.0.1:5173"],
+// CORS configuration
+app.use(cors({
+    origin: "http://localhost:5173",
     credentials: true,
-  })
-);
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
+}));
+
+// Handle preflight requests
+app.options("*", cors());
+
+// DB connect
+connectDB();
 
 // Test route
 app.get("/", (req, res) => {
-  res.send("API working fine!!");
+    res.send("✅ API working fine!!");
 });
 
 // Routes
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 
-/* ===============================
-   🔥 ADD THIS PART (IMPORTANT)
-   =============================== */
-
-// 👇 Sirf local me server start hoga
-if (process.env.VERCEL !== "1") {
-  const PORT = process.env.PORT || 10000;
-  app.listen(PORT, () => {
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
     console.log(`✅ Server running on PORT: ${PORT}`);
-  });
-}
-
-// 👇 Vercel ke liye export
-export default app;
+    console.log(`🌐 http://localhost:${PORT}`);
+});
