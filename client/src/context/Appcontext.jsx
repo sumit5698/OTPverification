@@ -31,7 +31,7 @@ const AppContextProvider = ({ children }) => {
     }
   };
 
-  // ✅ FIX 2: correct function call
+  // FIX 2: correct function call
   useEffect(() => {
     getAuthState();
   }, []);

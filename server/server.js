@@ -17,7 +17,8 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: ["https://host-r222.onrender.com","https://login-xuh4.onrender.com"],
+    origin: ["https://host-r222.onrender.com","https://login-xuh4.onrender.com", "https://localhost:5173",
+  "https://127.0.0.1:5173"],
     credentials: true,
   })
 );
@@ -37,7 +38,7 @@ app.use("/api/user", userRouter);
 
 // 👇 Sirf local me server start hoga
 if (process.env.VERCEL !== "1") {
-  const PORT = process.env.PORT || 5000;
+  const PORT = process.env.PORT || 10000;
   app.listen(PORT, () => {
     console.log(`✅ Server running on PORT: ${PORT}`);
   });

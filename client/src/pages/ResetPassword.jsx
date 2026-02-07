@@ -61,37 +61,39 @@ const Resetpassword = () => {
     }
   }
 
-  const onSubmit = async (e) =>{
+  const onSubmit = async (e) => {
     e.preventDefault();
-    const otpArray = inputRefs.current.map(e =>e.value)
+    const otpArray = inputRefs.current.map(e => e.value)
     setotp(otpArray.join(''))
-      setisOtpSubmited(true)
-    
+    setisOtpSubmited(true)
+
   }
 
- const onSubmitNewPassword = async (e) => {
-  e.preventDefault();
+  const onSubmitNewPassword = async (e) => {
+    e.preventDefault();
 
-  try {
-    const { data } = await axios.post(
-      backendUrl + '/api/auth/reset-password',
-      { email, otp, newPassword }
-    );
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/auth/reset-password',
+        { email, otp, newPassword },
+        { withCredentials: true }   // ✅ VERY IMPORTANT
+      );
 
-    data.success
-      ? toast.success(data.message)
-      : toast.error(data.message);
 
-    if (data.success) {
-      navigate('/login');
+      data.success
+        ? toast.success(data.message)
+        : toast.error(data.message);
+
+      if (data.success) {
+        navigate('/login');
+      }
+
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || error.messag
+      );
     }
-
-  } catch (error) {
-    toast.error(
-      error.response?.data?.message || error.message
-    );
-  }
-};
+  };
 
   return (
 

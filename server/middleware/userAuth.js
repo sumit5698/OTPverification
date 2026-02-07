@@ -2,14 +2,14 @@ import jwt from "jsonwebtoken";
 
 import userModel from "../models/userModel.js";
 
-export const getUserData = async (req, res) => {
+ const getUserData = async (req, res) => {
   try {
     const userId = req.userId; // ✅ middleware se
 
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Not Authorized. Login Again",
+        message: "Not Authorized. Login ",
       });
     }
 
@@ -34,3 +34,6 @@ export const getUserData = async (req, res) => {
     });
   }
 };
+
+
+export default getUserData;
