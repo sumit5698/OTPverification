@@ -10,7 +10,8 @@ const Navbar = () => {
     
     const sendVerificationotp = async () => {
         try {
-            const frontendOrigin = getFrontendOrigin();
+            // ✅ Safe call - check if function exists
+            const frontendOrigin = getFrontendOrigin ? getFrontendOrigin() : window.location.origin;
             
             const { data } = await axios.post('/api/auth/send-verify-otp', {
                 userId: userData.id
@@ -28,13 +29,15 @@ const Navbar = () => {
                 toast.error(data.message);
             }
         } catch (error) {
+            console.error("Send verification error:", error);
             toast.error(error.response?.data?.message || error.message);
         }
     };
 
     const handleLogout = async () => {
         try {
-            const frontendOrigin = getFrontendOrigin();
+            // ✅ Safe call - check if function exists
+            const frontendOrigin = getFrontendOrigin ? getFrontendOrigin() : window.location.origin;
             
             const { data } = await axios.get('/api/auth/logout', {
                 headers: {

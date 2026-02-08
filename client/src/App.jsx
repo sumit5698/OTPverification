@@ -25,7 +25,6 @@ const App = () => {
 
     return (
         <>
-            {/* ✅ FIXED: ToastContainer with proper configuration */}
             <ToastContainer
                 position="top-right"
                 autoClose={3000}

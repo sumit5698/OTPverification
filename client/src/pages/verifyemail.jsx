@@ -5,44 +5,33 @@ import { toast } from 'react-toastify'
 import axios from 'axios'
 
 const Verifyemail = () => {
-    const { backendUrl, isLoggedin, userData, getUserData } = useContext(AppContent)
+    const { backendUrl, isLoggedin, userData, getUserData, getFrontendOrigin } = useContext(AppContent)
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
     const inputRefs = useRef([])
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // ✅ FIXED: Safe toast function
+    // ✅ Safe toast function
     const showToast = (message, type = 'error') => {
         try {
-            // Ensure message is a string
             const msg = typeof message === 'string' ? message : 
                        message?.toString ? message.toString() : 'An error occurred';
             
-            // Remove any parentheses that might cause issues
             const cleanMsg = msg.replace(/[()]/g, '').trim();
             
             if (type === 'success') {
                 toast.success(cleanMsg, {
                     position: "top-right",
                     autoClose: 3000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
                 });
             } else {
                 toast.error(cleanMsg, {
                     position: "top-right",
                     autoClose: 3000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
                 });
             }
         } catch (error) {
             console.error("Toast error:", error);
-            // Fallback to console
             console[type === 'success' ? 'log' : 'error'](message);
         }
     }
@@ -50,7 +39,6 @@ const Verifyemail = () => {
     const handleInput = (e, index) => {
         const value = e.target.value
         
-        // Only allow numbers
         if (!/^\d?$/.test(value)) {
             e.target.value = '';
             return;
@@ -66,7 +54,6 @@ const Verifyemail = () => {
             inputRefs.current[index - 1].focus();
         }
         
-        // Prevent non-numeric input
         if (!/^\d$/.test(e.key) && 
             e.key !== 'Backspace' && 
             e.key !== 'Delete' && 
@@ -81,11 +68,9 @@ const Verifyemail = () => {
         e.preventDefault();
         const paste = e.clipboardData.getData('text').trim();
         
-        // Only accept numbers
         const cleanPaste = paste.replace(/\D/g, '');
         
         if (cleanPaste.length === 6) {
-            // Fill all inputs at once
             for (let i = 0; i < 6; i++) {
                 if (inputRefs.current[i]) {
                     inputRefs.current[i].value = cleanPaste[i] || '';
@@ -100,13 +85,11 @@ const Verifyemail = () => {
         const otpArray = inputRefs.current.map(input => input?.value || '');
         const otp = otpArray.join('');
         
-        // Check if all inputs are filled
         if (otp.length !== 6) {
             showToast('Please fill all 6 digits of the OTP');
             return null;
         }
         
-        // Check if OTP contains only numbers
         if (!/^\d+$/.test(otp)) {
             showToast('OTP should contain only numbers');
             return null;
@@ -140,6 +123,9 @@ const Verifyemail = () => {
                 return;
             }
 
+            // ✅ Safe call for frontend origin
+            const frontendOrigin = getFrontendOrigin ? getFrontendOrigin() : window.location.origin;
+            
             const response = await axios.post(
                 `${backendUrl}/api/auth/verify-email`,
                 {
@@ -150,7 +136,8 @@ const Verifyemail = () => {
                 {
                     withCredentials: true,
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Origin': frontendOrigin
                     },
                     timeout: 10000
                 }
@@ -161,20 +148,17 @@ const Verifyemail = () => {
             if (response.data?.success) {
                 showToast(response.data.message || 'Email verified successfully!', 'success');
                 
-                // Refresh user data
                 try {
                     await getUserData();
                 } catch (refreshError) {
                     console.log("Could not refresh user data:", refreshError);
                 }
                 
-                // Navigate to home after a short delay
                 setTimeout(() => {
                     navigate('/');
                 }, 1500);
             } else {
                 showToast(response.data?.message || "Verification failed");
-                // Clear OTP on failure
                 inputRefs.current.forEach(input => {
                     if (input) input.value = '';
                 });
@@ -202,7 +186,6 @@ const Verifyemail = () => {
             
             showToast(errorMessage);
             
-            // Clear OTP on error
             inputRefs.current.forEach(input => {
                 if (input) input.value = '';
             });
@@ -217,7 +200,6 @@ const Verifyemail = () => {
         }
     }
 
-    // Resend OTP functionality
     const [resendTimer, setResendTimer] = useState(0);
     const [canResend, setCanResend] = useState(false);
 
@@ -228,7 +210,9 @@ const Verifyemail = () => {
         setResendTimer(60);
         
         try {
-            // First try send-verify-otp endpoint
+            // ✅ Safe call for frontend origin
+            const frontendOrigin = getFrontendOrigin ? getFrontendOrigin() : window.location.origin;
+            
             const response = await axios.post(
                 `${backendUrl}/api/auth/send-verify-otp`,
                 { 
@@ -236,13 +220,15 @@ const Verifyemail = () => {
                 },
                 { 
                     withCredentials: true,
+                    headers: {
+                        'Origin': frontendOrigin
+                    },
                     timeout: 10000
                 }
             );
             
             if (response.data?.success) {
                 showToast('OTP resent successfully!', 'success');
-                // Clear existing OTP
                 inputRefs.current.forEach(input => {
                     if (input) input.value = '';
                 });
@@ -261,7 +247,6 @@ const Verifyemail = () => {
             setCanResend(true);
         }
         
-        // Start countdown
         const interval = setInterval(() => {
             setResendTimer(prev => {
                 if (prev <= 1) {
@@ -301,14 +286,12 @@ const Verifyemail = () => {
 
         console.log("✅ User needs email verification");
         
-        // Focus first input on load
         setTimeout(() => {
             if (inputRefs.current[0]) {
                 inputRefs.current[0].focus();
             }
         }, 100);
         
-        // Enable resend after 30 seconds
         const timer = setTimeout(() => {
             setCanResend(true);
         }, 30000);
@@ -330,7 +313,6 @@ const Verifyemail = () => {
     return (
         <div className='flex items-center justify-center min-h-screen px-6 sm:px-0 bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100'>
             
-            {/* Logo */}
             <div 
                 onClick={() => navigate('/')}
                 className='absolute left-5 sm:left-20 top-5 w-28 sm:w-32 h-28 sm:h-32 

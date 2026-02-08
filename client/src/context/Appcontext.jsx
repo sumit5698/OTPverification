@@ -12,18 +12,17 @@ const AppContextProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // ✅ FIXED: createAxiosInstance WITHOUT Origin header
+  // ✅ Create axios instance
   const createAxiosInstance = useCallback(() => {
     console.log("🔧 Creating axios instance for:", backendUrl);
     
     return axios.create({
       baseURL: backendUrl,
-      withCredentials: true, // ✅ IMPORTANT: This sends cookies
-      timeout: 30000, // ✅ 30 seconds timeout
+      withCredentials: true,
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-        // ❌ REMOVED: 'Origin' header - browser automatically sets it
       }
     });
   }, [backendUrl]);
@@ -32,7 +31,6 @@ const AppContextProvider = ({ children }) => {
   useEffect(() => {
     console.log("🌐 Initializing axios configuration");
     
-    // Set default configuration
     axios.defaults.baseURL = backendUrl;
     axios.defaults.withCredentials = true;
     axios.defaults.timeout = 30000;
@@ -41,7 +39,7 @@ const AppContextProvider = ({ children }) => {
     
   }, [backendUrl]);
 
-  // ✅ getUserData function
+  // ✅ Get user data
   const getUserData = useCallback(async () => {
     try {
       console.log("📡 Fetching user data...");
@@ -76,6 +74,7 @@ const AppContextProvider = ({ children }) => {
     }
   }, [createAxiosInstance]);
 
+  // ✅ Check auth state
   const getAuthState = async () => {
     try {
       console.log("🔄 Checking authentication...");
@@ -100,18 +99,14 @@ const AppContextProvider = ({ children }) => {
     } catch (error) {
       console.error("❌ Auth check error:", error);
       
-      // Special handling for timeout
       if (error.code === 'ECONNABORTED') {
-        console.log("⏰ Request timeout - server might be slow");
         toast.warning("Server is taking longer than usual to respond");
       }
       
       if (error.message.includes("Network Error") || error.code === "ERR_NETWORK") {
-        console.log("🔒 Trying localStorage fallback...");
         const localUser = localStorage.getItem('user');
         
         if (localUser) {
-          console.log("📦 Found user data in localStorage");
           setUserData(JSON.parse(localUser));
           setIsLoggedin(true);
           return;
@@ -130,7 +125,7 @@ const AppContextProvider = ({ children }) => {
     getAuthState();
   }, []);
 
-  // ✅ Enhanced logout
+  // ✅ Logout function
   const logout = async () => {
     try {
       const axiosInstance = createAxiosInstance();
@@ -152,6 +147,14 @@ const AppContextProvider = ({ children }) => {
     }
   };
 
+  // ✅ Get frontend origin (ADD THIS FUNCTION)
+  const getFrontendOrigin = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return "http://localhost:5173";
+  };
+
   const value = {
     backendUrl,
     isLoggedin,
@@ -163,7 +166,8 @@ const AppContextProvider = ({ children }) => {
     getAuthState,
     authChecked,
     logout,
-    createAxiosInstance
+    createAxiosInstance,
+    getFrontendOrigin // ✅ ADDED
   };
 
   return (
