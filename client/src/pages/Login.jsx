@@ -2,11 +2,10 @@ import React, { useState, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContent } from '../context/Appcontext'
 import { toast } from 'react-toastify'
-import axios from 'axios'
 
 const Login = () => {
   const navigate = useNavigate()
-  const { setIsLoggedin, getUserData, getFrontendOrigin } = useContext(AppContent)
+  const { setIsLoggedin, setUserData, getUserData, createAxiosInstance } = useContext(AppContent)
 
   const [state, setState] = useState('Sign Up')
   const [name, setName] = useState('')
@@ -19,88 +18,80 @@ const Login = () => {
     setLoading(true)
 
     try {
-      const frontendOrigin = getFrontendOrigin();
       console.log("🔐 Attempting", state, "...");
-      console.log("🌐 Frontend Origin:", frontendOrigin);
       
-      // Create custom axios instance for this request
-      const axiosInstance = axios.create({
-        baseURL: "https://otpverification-api.onrender.com",
-        withCredentials: true,
-        headers: {
-          'Origin': frontendOrigin,
-          'Content-Type': 'application/json'
-        }
-      });
+      const axiosInstance = createAxiosInstance();
+      const endpoint = state === 'Sign Up' ? '/api/auth/register' : '/api/auth/login';
+      const requestData = state === 'Sign Up' 
+        ? { name, email, password }
+        : { email, password };
 
-      let response;
-      
-      if (state === 'Sign Up') {
-        response = await axiosInstance.post('/api/auth/register', {
-          name,
-          email,
-          password
-        });
-      } else {
-        response = await axiosInstance.post('/api/auth/login', {
-          email,
-          password
-        });
-      }
+      console.log("📨 Sending request to:", endpoint);
+      console.log("📦 Request data:", { ...requestData, password: '***' });
 
-      console.log("✅ Response:", response.data);
-      
-      // Check if token is in response (backend might send it)
-      if (response.data.token) {
-        console.log("🔑 Token received in response");
-        localStorage.setItem('auth_token', response.data.token);
-        
-        // Also set cookie manually
-        document.cookie = `token=${response.data.token}; path=/; max-age=${7*24*60*60}; secure; samesite=none; domain=.onrender.com`;
-      }
-      
-      // Check cookies after request
-      console.log("🍪 Cookies after request:", document.cookie);
+      const response = await axiosInstance.post(endpoint, requestData);
+      console.log("✅ Response received:", response.data);
 
       if (response.data.success) {
+        // ✅ Handle user data from response
+        if (response.data.user) {
+          console.log("👤 User data in response:", response.data.user);
+          setUserData(response.data.user);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        } else {
+          // If no user data in response, fetch it
+          console.log("🔄 No user data in response, fetching...");
+          const userData = await getUserData();
+          if (userData) {
+            console.log("✅ Fetched user data:", userData);
+          }
+        }
+
+        // ✅ Store token if available
+        if (response.data.token) {
+          console.log("🔑 Token received:", response.data.token.substring(0, 20) + "...");
+          localStorage.setItem('auth_token', response.data.token);
+        }
+
         setIsLoggedin(true);
-        
-        // Small delay to ensure cookies are set
-        setTimeout(async () => {
-          await getUserData();
-          navigate('/');
-          toast.success(`${state === 'Sign Up' ? 'Registration' : 'Login'} successful!`);
-        }, 500);
+        navigate('/');
+        toast.success(`${state === 'Sign Up' ? 'Registration' : 'Login'} successful!`);
         
       } else {
-        toast.error(response.data.message);
+        toast.error(response.data.message || "Operation failed");
       }
 
     } catch (error) {
       console.error("❌", state, "error:", error);
       
-      // Special handling for cookie issues
-      if (error.response?.data?.token) {
-        console.log("🔑 Token in error response (fallback)");
-        localStorage.setItem('auth_token', error.response.data.token);
-        setIsLoggedin(true);
-        await getUserData();
-        navigate('/');
-        toast.success("Login successful (fallback)!");
-        return;
-      }
-      
-      if (error.response?.status === 401) {
-        toast.error("Invalid email or password");
+      // ✅ Detailed error handling
+      if (error.response) {
+        console.error("📊 Error Status:", error.response.status);
+        console.error("📦 Error Data:", error.response.data);
+        
+        if (error.response.status === 401) {
+          toast.error("Invalid email or password");
+        } else if (error.response.status === 400) {
+          toast.error(error.response.data?.message || "Please check your input");
+        } else if (error.response.status === 409) {
+          toast.error("User already exists with this email");
+        } else if (error.response.status === 500) {
+          toast.error("Server error. Please try again later.");
+        } else {
+          toast.error(error.response.data?.message || "Something went wrong");
+        }
       } 
       else if (error.code === 'ECONNABORTED') {
-        toast.error("Request timeout - server is slow");
+        toast.error("Request timeout. Please try again.");
       }
       else if (error.message.includes("Network Error")) {
-        toast.error("Cannot connect to server. Check internet connection.");
+        toast.error("Cannot connect to server. Check your internet connection.");
+      }
+      else if (error.message.includes("CORS")) {
+        toast.error("Cross-origin request blocked.");
       }
       else {
-        toast.error(error.response?.data?.message || "Something went wrong");
+        toast.error("Something went wrong. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -111,60 +102,58 @@ const Login = () => {
     <div className='flex items-center justify-center min-h-screen px-6
     sm:px-0 bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100 bg-cover relative'>
 
-      <img 
+      {/* Logo */}
+      <div 
         onClick={() => navigate('/')}
-        src='/auth.jpg'
-        alt='Auth Logo'
-        className='absolute left-5 sm:left-20 top-5 w-28 sm:w-32 cursor-pointer'
-        onError={(e) => {
-          e.target.style.display = 'none';
-          console.log('Image failed to load, using fallback');
-        }}
-      />
+        className='absolute left-5 sm:left-20 top-5 w-28 sm:w-32 h-28 sm:h-32 
+        bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg 
+        flex items-center justify-center cursor-pointer shadow-lg'
+      >
+        <span className="text-white text-xl font-bold">Auth</span>
+      </div>
 
       <div className='bg-slate-900 p-10 rounded-lg shadow-lg w-full sm:w-96
-        text-indigo-300 text-sm z-10'>
+        text-indigo-300 text-sm z-10 mt-32 sm:mt-0'>
 
         <h2 className='text-3xl font-semibold text-white text-center mb-3'>
-          {state === 'Sign Up' ? 'Create Account' : 'Login to your account!'}
+          {state === 'Sign Up' ? 'Create Account' : 'Login'}
         </h2>
 
-        <p className='text-center text-sm mb-6'>
-          {state === 'Sign Up' ? 'Create your account' : 'Login to your account!'}
+        <p className='text-center text-sm mb-6 text-gray-400'>
+          {state === 'Sign Up' ? 'Join our platform today!' : 'Welcome back!'}
         </p>
 
         <form onSubmit={onSubmitHandler}>
 
           {state === 'Sign Up' && (
-            <div className="mb-4 flex items-center gap-3 w-full px-5 py-3
-            rounded-full bg-[#333A5C] border border-white/10">
+            <div className="mb-4">
               <input
                 onChange={e => setName(e.target.value)}
                 value={name}
                 type="text"
                 placeholder="Full Name"
                 required
-                className="bg-transparent outline-none text-white w-full placeholder-gray-300"
+                className="w-full px-5 py-3 rounded-full bg-[#333A5C] border border-white/10
+                  bg-transparent outline-none text-white placeholder-gray-300"
                 autoComplete="name"
               />
             </div>
           )}
 
-          <div className="mb-4 flex items-center gap-3 w-full px-5 py-3
-            rounded-full bg-[#333A5C] border border-white/10">
+          <div className="mb-4">
             <input
               onChange={e => setEmail(e.target.value)}
               value={email}
               type="email"
               placeholder="Email"
               required
-              className="bg-transparent outline-none text-white w-full placeholder-gray-300"
+              className="w-full px-5 py-3 rounded-full bg-[#333A5C] border border-white/10
+                bg-transparent outline-none text-white placeholder-gray-300"
               autoComplete="email"
             />
           </div>
 
-          <div className="mb-4 flex items-center gap-3 w-full px-5 py-3
-            rounded-full bg-[#333A5C] border border-white/10">
+          <div className="mb-6">
             <input
               onChange={e => setPassword(e.target.value)}
               value={password}
@@ -172,7 +161,8 @@ const Login = () => {
               placeholder="Password"
               required
               minLength="6"
-              className="bg-transparent outline-none text-white w-full placeholder-gray-300"
+              className="w-full px-5 py-3 rounded-full bg-[#333A5C] border border-white/10
+                bg-transparent outline-none text-white placeholder-gray-300"
               autoComplete={state === 'Sign Up' ? 'new-password' : 'current-password'}
             />
           </div>
@@ -180,58 +170,58 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-2.5 rounded-full bg-gradient-to-r
-            from-indigo-500 to-indigo-900 text-white font-medium
-            ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'} 
-            transition-opacity duration-200`}>
+            className={`w-full py-3 rounded-full bg-gradient-to-r
+            from-indigo-500 to-indigo-900 text-white font-medium text-lg
+            ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 hover:scale-[1.02]'} 
+            transition-all duration-200 flex items-center justify-center gap-2`}
+          >
             {loading ? (
-              <span className="flex items-center justify-center gap-2">
+              <>
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
-              </span>
-            ) : state}
+                {state === 'Sign Up' ? 'Creating Account...' : 'Logging in...'}
+              </>
+            ) : (
+              state
+            )}
           </button>
         </form>
 
-        <p 
-          onClick={() => navigate('/reset-password')}
-          className='mb-4 text-indigo-500 cursor-pointer hover:underline text-center mt-4'
-        >
-          Forgot Password?
-        </p>
-
-        {state === 'Sign Up' ? (
-          <p className='text-gray-500 text-center text-xs mt-4'>
-            Already have an account?{' '}
-            <span
-              onClick={() => setState('Login')}
-              className='text-blue-400 cursor-pointer underline hover:text-blue-300'>
-              Login here
-            </span>
+        <div className="mt-8 space-y-4">
+          <p 
+            onClick={() => navigate('/reset-password')}
+            className='text-indigo-400 cursor-pointer hover:text-indigo-300 
+            hover:underline text-center text-sm transition-colors'
+          >
+            Forgot Password?
           </p>
-        ) : (
-          <p className='text-gray-500 text-center text-xs mt-4'>
-            Don't have an account?{' '}
-            <span
-              onClick={() => setState('Sign Up')}
-              className='text-blue-400 cursor-pointer underline hover:text-blue-300'>
-              Sign up
-            </span>
-          </p>
-        )}
 
-        {/* Debug Info - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-6 p-3 bg-gray-800 rounded-lg text-xs">
-            <p className="text-gray-400">Debug Info:</p>
-            <p className="text-gray-300">Frontend: {window.location.origin}</p>
-            <p className="text-gray-300">Backend: https://otpverification-api.onrender.com</p>
-            <p className="text-gray-300">Cookies: {document.cookie || 'None'}</p>
+          <div className="border-t border-gray-700 pt-4">
+            {state === 'Sign Up' ? (
+              <p className='text-gray-400 text-center text-sm'>
+                Already have an account?{' '}
+                <span
+                  onClick={() => setState('Login')}
+                  className='text-blue-400 cursor-pointer font-medium 
+                  hover:text-blue-300 hover:underline transition-colors'>
+                  Login here
+                </span>
+              </p>
+            ) : (
+              <p className='text-gray-400 text-center text-sm'>
+                Don't have an account?{' '}
+                <span
+                  onClick={() => setState('Sign Up')}
+                  className='text-blue-400 cursor-pointer font-medium 
+                  hover:text-blue-300 hover:underline transition-colors'>
+                  Sign up
+                </span>
+              </p>
+            )}
           </div>
-        )}
+        </div>
 
       </div>
     </div>
