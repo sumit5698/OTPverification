@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContent } from '../context/Appcontext'
-import { toast } from 'react-toastify'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import axios from 'axios'
 
 const Verifyemail = () => {
@@ -10,6 +11,37 @@ const Verifyemail = () => {
     const [loading, setLoading] = useState(false)
     const inputRefs = useRef([])
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // Safe toast function to prevent "i is not a function" error
+    const showToast = (message, type = 'error') => {
+        try {
+            if (typeof message !== 'string') {
+                message = String(message);
+            }
+            
+            // Clean the message - remove any potential function calls
+            const cleanMessage = message.replace(/[()]/g, '');
+            
+            if (type === 'success') {
+                toast.success(cleanMessage, {
+                    position: "top-right",
+                    autoClose: 3000,
+                });
+            } else {
+                toast.error(cleanMessage, {
+                    position: "top-right",
+                    autoClose: 3000,
+                });
+            }
+        } catch (error) {
+            console.error("Toast error:", error);
+            // Fallback to a safe message
+            toast.error("An error occurred", {
+                position: "top-right",
+                autoClose: 3000,
+            });
+        }
+    }
 
     const handleInput = (e, index) => {
         const value = e.target.value
@@ -22,22 +54,6 @@ const Verifyemail = () => {
         
         if (value.length > 0 && index < inputRefs.current.length - 1) {
             inputRefs.current[index + 1].focus();
-        }
-        
-        // Auto-submit when all digits are filled
-        const otpArray = inputRefs.current.map(input => input?.value);
-        const otp = otpArray.join('');
-        if (otp.length === 6 && /^\d+$/.test(otp)) {
-            // Trigger submit after a short delay
-            setTimeout(() => {
-                if (!loading && !isSubmitting) {
-                    const form = document.querySelector('form');
-                    if (form) {
-                        const submitEvent = new Event('submit', { cancelable: true, bubbles: true });
-                        form.dispatchEvent(submitEvent);
-                    }
-                }
-            }, 100);
         }
     }
 
@@ -71,44 +87,39 @@ const Verifyemail = () => {
                     inputRefs.current[i].value = cleanPaste[i] || '';
                 }
             }
-            
-            // Auto-submit
-            setTimeout(() => {
-                if (!loading && !isSubmitting) {
-                    onSubmitHandler(e);
-                }
-            }, 100);
         } else {
-            toast.error('Please paste a valid 6-digit OTP');
+            showToast('Please paste a valid 6-digit OTP');
         }
     }
 
-    const validateOTP = (otp) => {
+    const validateOTP = () => {
+        const otpArray = inputRefs.current.map(input => input?.value || '');
+        const otp = otpArray.join('');
+        
         // Check if all inputs are filled
-        const isEmpty = inputRefs.current.some(input => !input?.value);
-        if (isEmpty) {
-            toast.error('Please fill all OTP digits');
-            return false;
+        if (otp.length !== 6) {
+            showToast('Please fill all 6 digits of the OTP');
+            return null;
         }
         
         // Check if OTP contains only numbers
         if (!/^\d+$/.test(otp)) {
-            toast.error('OTP should contain only numbers');
-            return false;
+            showToast('OTP should contain only numbers');
+            return null;
         }
         
-        return true;
+        return otp;
     };
 
     const onSubmitHandler = async (e) => {
         e.preventDefault();
         
-        if (isSubmitting || loading) return;
+        if (isSubmitting || loading) {
+            return;
+        }
         
-        const otpArray = inputRefs.current.map(input => input?.value);
-        const otp = otpArray.join('');
-        
-        if (!validateOTP(otp)) {
+        const otp = validateOTP();
+        if (!otp) {
             return;
         }
         
@@ -120,8 +131,8 @@ const Verifyemail = () => {
             console.log("👤 User ID:", userData?.id);
 
             if (!userData?.id) {
-                toast.error("User data not found. Please login again.");
-                navigate('/login');
+                showToast("User data not found. Please login again.");
+                setTimeout(() => navigate('/login'), 1500);
                 return;
             }
 
@@ -137,49 +148,65 @@ const Verifyemail = () => {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    timeout: 10000 // 10 second timeout
+                    timeout: 10000
                 }
             );
 
             console.log("✅ Verification response:", response.data);
 
-            if (response.data.success) {
-                toast.success(response.data.message || 'Email verified successfully!');
+            if (response.data?.success) {
+                showToast(response.data.message || 'Email verified successfully!', 'success');
                 
                 // Refresh user data
-                await getUserData();
+                try {
+                    await getUserData();
+                } catch (refreshError) {
+                    console.log("Could not refresh user data:", refreshError);
+                }
                 
                 // Navigate to home after a short delay
                 setTimeout(() => {
                     navigate('/');
                 }, 1500);
             } else {
-                toast.error(response.data.message || "Verification failed");
+                showToast(response.data?.message || "Verification failed");
                 // Clear OTP on failure
                 inputRefs.current.forEach(input => {
                     if (input) input.value = '';
                 });
-                inputRefs.current[0]?.focus();
+                setTimeout(() => {
+                    if (inputRefs.current[0]) {
+                        inputRefs.current[0].focus();
+                    }
+                }, 100);
             }
 
         } catch (error) {
             console.error("❌ Verification error:", error);
             
-            if (error.response) {
-                toast.error(error.response.data?.message || "Verification failed");
-            } else if (error.code === 'ECONNABORTED') {
-                toast.error("Request timeout. Please try again.");
-            } else if (error.message.includes("Network Error")) {
-                toast.error("Cannot connect to server. Check your connection.");
-            } else {
-                toast.error("Something went wrong. Please try again.");
+            let errorMessage = "Something went wrong. Please try again.";
+            
+            if (axios.isAxiosError(error)) {
+                if (error.response) {
+                    errorMessage = error.response.data?.message || "Verification failed";
+                } else if (error.code === 'ECONNABORTED') {
+                    errorMessage = "Request timeout. Please try again.";
+                } else if (error.message.includes("Network Error")) {
+                    errorMessage = "Cannot connect to server. Check your connection.";
+                }
             }
+            
+            showToast(errorMessage);
             
             // Clear OTP on error
             inputRefs.current.forEach(input => {
                 if (input) input.value = '';
             });
-            inputRefs.current[0]?.focus();
+            setTimeout(() => {
+                if (inputRefs.current[0]) {
+                    inputRefs.current[0].focus();
+                }
+            }, 100);
         } finally {
             setIsSubmitting(false);
             setLoading(false);
@@ -194,7 +221,7 @@ const Verifyemail = () => {
         if (!canResend || !userData?.id) return;
         
         setCanResend(false);
-        setResendTimer(60); // 60 seconds timer
+        setResendTimer(60);
         
         try {
             const response = await axios.post(
@@ -209,20 +236,24 @@ const Verifyemail = () => {
                 }
             );
             
-            if (response.data.success) {
-                toast.success('OTP resent successfully! Check your email.');
+            if (response.data?.success) {
+                showToast('OTP resent successfully! Check your email.', 'success');
                 // Clear existing OTP
                 inputRefs.current.forEach(input => {
                     if (input) input.value = '';
                 });
-                inputRefs.current[0]?.focus();
+                setTimeout(() => {
+                    if (inputRefs.current[0]) {
+                        inputRefs.current[0].focus();
+                    }
+                }, 100);
             } else {
-                toast.error(response.data.message || 'Failed to resend OTP');
+                showToast(response.data?.message || 'Failed to resend OTP');
                 setCanResend(true);
             }
         } catch (error) {
             console.error("❌ Resend OTP error:", error);
-            toast.error('Failed to resend OTP. Please try again.');
+            showToast('Failed to resend OTP. Please try again.');
             setCanResend(true);
         }
         
@@ -246,12 +277,14 @@ const Verifyemail = () => {
 
         if (!isLoggedin) {
             console.log("❌ Not logged in, redirecting to login");
+            showToast("Please login first");
             navigate('/login');
             return;
         }
 
         if (!userData) {
             console.log("❌ No user data, redirecting to login");
+            showToast("User data not found");
             navigate('/login');
             return;
         }
@@ -292,6 +325,8 @@ const Verifyemail = () => {
 
     return (
         <div className='flex items-center justify-center min-h-screen px-6 sm:px-0 bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100'>
+            {/* Toast Container */}
+            <ToastContainer />
             
             {/* Logo */}
             <div 
@@ -340,7 +375,7 @@ const Verifyemail = () => {
                     type="submit" 
                     disabled={loading || isSubmitting}
                     className={`w-full py-3 bg-gradient-to-r from-indigo-500 to-indigo-900 
-                    text-white rounded-full hover:opacity-90 transition-opacity
+                    text-white rounded-full hover:opacity-90 transition-opacity duration-200
                     flex items-center justify-center gap-2 ${(loading || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {(loading || isSubmitting) ? (
