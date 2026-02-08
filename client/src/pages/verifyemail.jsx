@@ -1,15 +1,11 @@
-import axios from 'axios'
-import React, { useContext, useEffect, useState } from 'react' // ✅ Added useState
+import React, { useContext, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContent } from '../context/Appcontext'
 import { toast } from 'react-toastify'
 
 const Verifyemail = () => {
-    axios.defaults.withCredentials = true
-    const { backendUrl, isLoggedin, userData, getUserData } = useContext(AppContent)
+    const { backendUrl, isLoggedin, userData, getUserData, getFrontendOrigin } = useContext(AppContent)
     const navigate = useNavigate()
-    const [userId, setUserId] = useState(userData?.id || '') // ✅ Store userId
-
     const inputRefs = React.useRef([])
 
     const handleInput = (e, index) => {
@@ -39,16 +35,24 @@ const Verifyemail = () => {
             e.preventDefault();
             const otpArray = inputRefs.current.map(e => e.value)
             const otp = otpArray.join('')
+            const frontendOrigin = getFrontendOrigin();
 
-            // ✅ Send both userId and otp
-            const { data } = await axios.post(backendUrl + '/api/auth/verify-email', {
-                userId: userData.id, // ✅ Added userId
-                otp: otp
-            })
+            const { data } = await fetch(`${backendUrl}/api/auth/verify-email`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Origin': frontendOrigin
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    userId: userData.id,
+                    otp: otp
+                })
+            }).then(res => res.json());
 
             if (data.success) {
                 toast.success(data.message)
-                getUserData() // Refresh user data
+                await getUserData()
                 navigate('/')
             } else {
                 toast.error(data.message)
@@ -59,14 +63,24 @@ const Verifyemail = () => {
     }
 
     useEffect(() => {
-        if (isLoggedin && userData && userData.isAccountVerified) {
+        if (!isLoggedin || !userData) {
+            navigate('/login');
+        }
+        if (userData?.isAccountVerified) {
             navigate('/')
         }
-        // Set userId when userData is available
-        if (userData && userData.id) {
-            setUserId(userData.id)
-        }
-    }, [isLoggedin, userData])
+    }, [isLoggedin, userData, navigate])
+
+    if (!userData) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className='flex items-center justify-center min-h-screen px-6
@@ -85,7 +99,7 @@ const Verifyemail = () => {
                 </h1>
 
                 <p className='text-center mb-6 text-indigo-300'>
-                    Enter the 6-digit code to your email id.
+                    Enter the 6-digit code sent to {userData.email}
                 </p>
 
                 <div className='flex justify-between mb-8' onPaste={handlePaste}>
@@ -96,7 +110,7 @@ const Verifyemail = () => {
                             key={index}
                             required
                             className="w-12 h-12 bg-[#333A5C] text-white text-center text-xl rounded-md"
-                            ref={e => inputRefs.current[index] = e}
+                            ref={el => inputRefs.current[index] = el}
                             onInput={(e) => handleInput(e, index)}
                             onKeyDown={(e) => handlekeyDown(e, index)}
                         />
@@ -104,7 +118,13 @@ const Verifyemail = () => {
                 </div>
 
                 <button type="submit" className='w-full py-3 bg-gradient-to-r from-indigo-500
-                to-indigo-900 text-white rounded-full'>Verify Email</button>
+                to-indigo-900 text-white rounded-full hover:opacity-90 transition-opacity'>
+                    Verify Email
+                </button>
+                
+                <p className='text-center text-xs text-gray-400 mt-4'>
+                    Didn't receive OTP? Check spam folder or try again later.
+                </p>
             </form>
         </div>
     )

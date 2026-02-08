@@ -5,44 +5,63 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 
 const Navbar = () => {
-    const navigate = useNavigate()
-    const { userData, setUserData, setIsLoggedin } = useContext(AppContent)
+    const navigate = useNavigate();
+    const { userData, setUserData, setIsLoggedin, getFrontendOrigin } = useContext(AppContent);
     
     const sendVerificationotp = async () => {
         try {
+            const frontendOrigin = getFrontendOrigin();
+            
             const { data } = await axios.post('/api/auth/send-verify-otp', {
                 userId: userData.id
-            })
+            }, {
+                headers: {
+                    'Origin': frontendOrigin
+                },
+                withCredentials: true
+            });
+            
             if (data.success) {
-                navigate('/verify-email')
-                toast.success(data.message)
+                navigate('/verify-email');
+                toast.success(data.message);
             } else {
-                toast.error(data.message)
+                toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || error.message)
+            toast.error(error.response?.data?.message || error.message);
         }
-    }
+    };
 
-    // ✅ Use logout from context
     const handleLogout = async () => {
         try {
-            const { data } = await axios.get('/api/auth/logout');
+            const frontendOrigin = getFrontendOrigin();
+            
+            const { data } = await axios.get('/api/auth/logout', {
+                headers: {
+                    'Origin': frontendOrigin
+                },
+                withCredentials: true
+            });
+            
             if (data.success) {
                 setIsLoggedin(false);
                 setUserData(null);
+                localStorage.removeItem('user');
+                localStorage.removeItem('auth_token');
                 navigate('/');
                 toast.success("Logged out successfully");
             }
         } catch (error) {
             console.error("Logout error:", error);
-            // Force logout anyway
+            // Force logout
             setIsLoggedin(false);
             setUserData(null);
+            localStorage.removeItem('user');
+            localStorage.removeItem('auth_token');
             navigate('/');
             toast.success("Logged out");
         }
-    }
+    };
 
     return (
         <div className='w-full flex justify-between items-center p-4 sm:p-6 sm:px-24 absolute top-0 z-40'>
@@ -53,8 +72,8 @@ const Navbar = () => {
                 onClick={() => navigate('/')}
             />
 
-            {userData ?
-                <div className='relative'>
+            {userData ? (
+                <div className='relative group'>
                     <div className='w-10 h-10 flex justify-center items-center rounded-full 
                     bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold 
                     text-lg cursor-pointer hover:scale-105 transition-transform'>
@@ -63,9 +82,10 @@ const Navbar = () => {
 
                     {/* Dropdown Menu */}
                     <div className='absolute right-0 top-12 w-48 bg-white rounded-lg shadow-xl 
-                    border border-gray-200 py-2 hidden group-hover:block hover:block'>
+                    border border-gray-200 py-2 opacity-0 invisible group-hover:opacity-100 
+                    group-hover:visible transition-all duration-200'>
                         
-                        {!userData.isAccountVerified &&
+                        {!userData.isAccountVerified && (
                             <div onClick={sendVerificationotp} 
                                 className='flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 
                                 cursor-pointer transition-colors'>
@@ -74,9 +94,11 @@ const Navbar = () => {
                                     Verify Email
                                 </span>
                             </div>
-                        }
+                        )}
 
-                        <div className='border-t border-gray-100 my-1'></div>
+                        {!userData.isAccountVerified && (
+                            <div className='border-t border-gray-100 my-1'></div>
+                        )}
 
                         <div onClick={handleLogout} 
                             className='flex items-center gap-3 px-4 py-3 hover:bg-red-50 
@@ -92,7 +114,7 @@ const Navbar = () => {
                         </div>
                     </div>
                 </div>
-                :
+            ) : (
                 <button
                     onClick={() => navigate('/login')}
                     className='flex items-center gap-3 border border-gray-300 rounded-full 
@@ -102,7 +124,7 @@ const Navbar = () => {
                     <span className='font-medium'>Login</span>
                     <img src="arrow.jpg" alt="arrow" className="w-5 h-5" />
                 </button>
-            }
+            )}
         </div>
     );
 };
