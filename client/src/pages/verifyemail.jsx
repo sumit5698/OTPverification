@@ -1,8 +1,7 @@
 import React, { useContext, useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContent } from '../context/Appcontext'
-import { ToastContainer, toast } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { toast } from 'react-toastify'
 import axios from 'axios'
 
 const Verifyemail = () => {
@@ -12,34 +11,39 @@ const Verifyemail = () => {
     const inputRefs = useRef([])
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // Safe toast function to prevent "i is not a function" error
+    // ✅ FIXED: Safe toast function
     const showToast = (message, type = 'error') => {
         try {
-            if (typeof message !== 'string') {
-                message = String(message);
-            }
+            // Ensure message is a string
+            const msg = typeof message === 'string' ? message : 
+                       message?.toString ? message.toString() : 'An error occurred';
             
-            // Clean the message - remove any potential function calls
-            const cleanMessage = message.replace(/[()]/g, '');
+            // Remove any parentheses that might cause issues
+            const cleanMsg = msg.replace(/[()]/g, '').trim();
             
             if (type === 'success') {
-                toast.success(cleanMessage, {
+                toast.success(cleanMsg, {
                     position: "top-right",
                     autoClose: 3000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
                 });
             } else {
-                toast.error(cleanMessage, {
+                toast.error(cleanMsg, {
                     position: "top-right",
                     autoClose: 3000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
                 });
             }
         } catch (error) {
             console.error("Toast error:", error);
-            // Fallback to a safe message
-            toast.error("An error occurred", {
-                position: "top-right",
-                autoClose: 3000,
-            });
+            // Fallback to console
+            console[type === 'success' ? 'log' : 'error'](message);
         }
     }
 
@@ -224,11 +228,11 @@ const Verifyemail = () => {
         setResendTimer(60);
         
         try {
+            // First try send-verify-otp endpoint
             const response = await axios.post(
-                `${backendUrl}/api/auth/resend-otp`,
+                `${backendUrl}/api/auth/send-verify-otp`,
                 { 
-                    userId: userData.id,
-                    email: userData.email 
+                    userId: userData.id
                 },
                 { 
                     withCredentials: true,
@@ -237,7 +241,7 @@ const Verifyemail = () => {
             );
             
             if (response.data?.success) {
-                showToast('OTP resent successfully! Check your email.', 'success');
+                showToast('OTP resent successfully!', 'success');
                 // Clear existing OTP
                 inputRefs.current.forEach(input => {
                     if (input) input.value = '';
@@ -314,7 +318,7 @@ const Verifyemail = () => {
 
     if (!userData) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100">
                 <div className="text-center">
                     <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
                     <p className="mt-4 text-gray-600">Loading user data...</p>
@@ -325,8 +329,6 @@ const Verifyemail = () => {
 
     return (
         <div className='flex items-center justify-center min-h-screen px-6 sm:px-0 bg-gradient-to-br from-pink-100 via-blue-100 to-purple-100'>
-            {/* Toast Container */}
-            <ToastContainer />
             
             {/* Logo */}
             <div 
@@ -346,7 +348,7 @@ const Verifyemail = () => {
                 <p className='text-center mb-2 text-indigo-300'>
                     Enter the 6-digit code sent to:
                 </p>
-                <p className='text-center mb-6 text-white font-medium break-all'>
+                <p className='text-center mb-6 text-white font-medium break-all px-4'>
                     {userData.email}
                 </p>
 
@@ -362,7 +364,7 @@ const Verifyemail = () => {
                             disabled={loading || isSubmitting}
                             className="w-12 h-12 bg-[#333A5C] text-white text-center text-xl rounded-md
                             focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50
-                            transition-all duration-200"
+                            transition-all duration-200 border border-gray-700"
                             ref={el => inputRefs.current[index] = el}
                             onChange={(e) => handleInput(e, index)}
                             onKeyDown={(e) => handlekeyDown(e, index)}
@@ -395,24 +397,26 @@ const Verifyemail = () => {
                             type="button"
                             onClick={handleResendOTP}
                             disabled={!canResend || loading || isSubmitting}
-                            className={`text-sm ${canResend ? 'text-indigo-400 hover:text-indigo-300' : 'text-gray-500 cursor-not-allowed'}`}
+                            className={`text-sm ${canResend ? 'text-indigo-400 hover:text-indigo-300 hover:underline' : 'text-gray-500 cursor-not-allowed'}`}
                         >
                             {canResend ? 'Resend OTP' : `Resend in ${resendTimer}s`}
                         </button>
                     </div>
                     
                     <p className='text-xs text-gray-400'>
-                        Didn't receive OTP? Check your spam folder.
+                        Didn't receive OTP? Check your spam folder or click resend.
                     </p>
                     
-                    <button
-                        type="button"
-                        onClick={() => navigate('/')}
-                        disabled={loading || isSubmitting}
-                        className="text-sm text-indigo-400 hover:text-indigo-300 disabled:opacity-50"
-                    >
-                        Back to Home
-                    </button>
+                    <div className="pt-2 border-t border-gray-700">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/')}
+                            disabled={loading || isSubmitting}
+                            className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline disabled:opacity-50"
+                        >
+                            Back to Home
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
