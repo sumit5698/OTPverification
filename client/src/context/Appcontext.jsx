@@ -5,48 +5,69 @@ import { toast } from "react-toastify";
 export const AppContent = createContext();
 
 const AppContextProvider = ({ children }) => {
-
-  // ✅ Fix: Add default backend URL
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-
+  const backendUrl = "https://otpverification-api.onrender.com";
+  
   const [isLoggedin, setIsLoggedin] = useState(false);
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true); // ✅ Add loading state
+  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // ✅ Global axios configuration (एक बार ही)
+  useEffect(() => {
+    axios.defaults.baseURL = backendUrl;
+    axios.defaults.withCredentials = true; // ✅ With credentials
+    axios.defaults.timeout = 10000; // ✅ Increase timeout
+  }, []);
 
   const getAuthState = async () => {
     try {
-      console.log("🔄 Checking auth at:", `${backendUrl}/api/auth/is-auth`);
+      console.log("🔄 Checking authentication from:", `${backendUrl}/api/auth/is-auth`);
       
-      // ✅ FIX: Added withCredentials: true
-      const { data } = await axios.get(
-        `${backendUrl}/api/auth/is-auth`,
-        {
-          withCredentials: true, // ✅ IMPORTANT: Send cookies
-          timeout: 5000 // ✅ Timeout after 5 seconds
-        }
-      );
+      // ✅ Simple request without extra config
+      const { data } = await axios.get('/api/auth/is-auth');
 
       console.log("✅ Auth response:", data);
 
       if (data.success && data.authenticated) {
         setIsLoggedin(true);
-        getUserData(); // ✅ auth confirmed, now fetch user
+        await getUserData(); // ✅ Wait for user data
       } else {
         setIsLoggedin(false);
         setUserData(null);
       }
 
     } catch (error) {
-      console.error("❌ Auth check failed:", error.message);
-      setIsLoggedin(false);
-      setUserData(null);
+      console.error("❌ Auth check error:", error);
       
-      // Show error toast
-      if (error.code === 'ERR_NETWORK') {
-        toast.error("Cannot connect to server. Make sure backend is running on port 5000.");
+      // ✅ Specific error handling
+      if (error.response?.status === 401) {
+        console.log("User is not logged in");
+        setIsLoggedin(false);
+        setUserData(null);
+      } 
+      else if (error.code === 'ECONNABORTED') {
+        console.log("Request timeout - server slow");
+        toast.warn("Server is taking time to respond");
+      }
+      else if (error.message.includes("Network Error") || error.message.includes("CORS")) {
+        console.log("Network/CORS error - checking local storage");
+        // Check if user data exists in localStorage
+        const localUser = localStorage.getItem('user');
+        if (localUser) {
+          setUserData(JSON.parse(localUser));
+          setIsLoggedin(true);
+        } else {
+          setIsLoggedin(false);
+        }
+      }
+      else {
+        console.error("Other error:", error.message);
+        setIsLoggedin(false);
+        setUserData(null);
       }
     } finally {
-      setLoading(false); // ✅ Stop loading
+      setLoading(false);
+      setAuthChecked(true);
     }
   };
 
@@ -56,25 +77,39 @@ const AppContextProvider = ({ children }) => {
 
   const getUserData = async () => {
     try {
-      // ✅ FIX: Added withCredentials: true
-      const { data } = await axios.get(
-        `${backendUrl}/api/user/data`,
-        {
-          withCredentials: true // ✅ IMPORTANT: Send cookies
-        }
-      );
+      const { data } = await axios.get('/api/user/data');
 
-      if (data.success) {
+      if (data.success && data.userData) {
         setUserData(data.userData);
+        // ✅ Store in localStorage for offline access
+        localStorage.setItem('user', JSON.stringify(data.userData));
       } else {
-        toast.error(data.message);
         setIsLoggedin(false);
+        localStorage.removeItem('user');
       }
 
     } catch (error) {
-      console.error("❌ Get user data failed:", error.message);
+      console.error("Get user data error:", error);
+      setIsLoggedin(false);
+      localStorage.removeItem('user');
+    }
+  };
+
+  // ✅ Logout function (context में add करें)
+  const logout = async () => {
+    try {
+      await axios.get('/api/auth/logout');
       setIsLoggedin(false);
       setUserData(null);
+      localStorage.removeItem('user');
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Force logout anyway
+      setIsLoggedin(false);
+      setUserData(null);
+      localStorage.removeItem('user');
+      toast.success("Logged out");
     }
   };
 
@@ -85,8 +120,10 @@ const AppContextProvider = ({ children }) => {
     userData,
     setUserData,
     getUserData,
-    loading, // ✅ Export loading state
-    getAuthState, // ✅ Export so components can refresh auth
+    loading,
+    getAuthState,
+    authChecked,
+    logout, // ✅ Add logout to context
   };
 
   return (
