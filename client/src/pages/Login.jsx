@@ -19,21 +19,30 @@ const Login = () => {
 
     try {
       console.log("🔐 Attempting", state, "...");
+      console.log("📧 Email:", email);
       
+      // Create axios instance for this request
       const axiosInstance = createAxiosInstance();
+      
       const endpoint = state === 'Sign Up' ? '/api/auth/register' : '/api/auth/login';
       const requestData = state === 'Sign Up' 
         ? { name, email, password }
         : { email, password };
 
       console.log("📨 Sending request to:", endpoint);
-      console.log("📦 Request data:", { ...requestData, password: '***' });
+      console.log("🔗 Full URL:", axiosInstance.defaults.baseURL + endpoint);
 
+      // Make the request
       const response = await axiosInstance.post(endpoint, requestData);
-      console.log("✅ Response received:", response.data);
+      
+      console.log("✅ Response received");
+      console.log("📊 Status:", response.status);
+      console.log("📦 Data:", response.data);
 
       if (response.data.success) {
-        // ✅ Handle user data from response
+        console.log("🎯", state, "successful!");
+        
+        // Handle user data from response
         if (response.data.user) {
           console.log("👤 User data in response:", response.data.user);
           setUserData(response.data.user);
@@ -41,33 +50,43 @@ const Login = () => {
         } else {
           // If no user data in response, fetch it
           console.log("🔄 No user data in response, fetching...");
-          const userData = await getUserData();
-          if (userData) {
-            console.log("✅ Fetched user data:", userData);
+          try {
+            const userData = await getUserData();
+            if (userData) {
+              console.log("✅ Fetched user data:", userData);
+            }
+          } catch (userError) {
+            console.log("⚠️ Could not fetch user data:", userError.message);
           }
         }
 
-        // ✅ Store token if available
+        // Store token if available
         if (response.data.token) {
-          console.log("🔑 Token received:", response.data.token.substring(0, 20) + "...");
+          console.log("🔑 Token received, storing in localStorage");
           localStorage.setItem('auth_token', response.data.token);
         }
 
         setIsLoggedin(true);
+        
+        // Navigate to home
         navigate('/');
         toast.success(`${state === 'Sign Up' ? 'Registration' : 'Login'} successful!`);
         
       } else {
-        toast.error(response.data.message || "Operation failed");
+        console.log("❌", state, "failed:", response.data.message);
+        toast.error(response.data.message || `${state} failed`);
       }
 
     } catch (error) {
-      console.error("❌", state, "error:", error);
+      console.error("❌", state, "error details:");
+      console.error("Error name:", error.name);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
       
-      // ✅ Detailed error handling
+      // Detailed error handling
       if (error.response) {
-        console.error("📊 Error Status:", error.response.status);
-        console.error("📦 Error Data:", error.response.data);
+        console.error("📊 Response status:", error.response.status);
+        console.error("📦 Response data:", error.response.data);
         
         if (error.response.status === 401) {
           toast.error("Invalid email or password");
@@ -78,20 +97,31 @@ const Login = () => {
         } else if (error.response.status === 500) {
           toast.error("Server error. Please try again later.");
         } else {
-          toast.error(error.response.data?.message || "Something went wrong");
+          toast.error(error.response.data?.message || `Error ${error.response.status}`);
         }
       } 
       else if (error.code === 'ECONNABORTED') {
-        toast.error("Request timeout. Please try again.");
+        console.log("⏰ Request timeout after", error.config?.timeout, "ms");
+        toast.error("Request timeout. Server might be slow or unresponsive.");
       }
       else if (error.message.includes("Network Error")) {
         toast.error("Cannot connect to server. Check your internet connection.");
       }
       else if (error.message.includes("CORS")) {
-        toast.error("Cross-origin request blocked.");
+        toast.error("Cross-origin request blocked. Please try again.");
       }
       else {
         toast.error("Something went wrong. Please try again.");
+      }
+      
+      // Log additional info for debugging
+      if (error.config) {
+        console.log("🔧 Request config:", {
+          url: error.config.url,
+          method: error.config.method,
+          timeout: error.config.timeout,
+          withCredentials: error.config.withCredentials
+        });
       }
     } finally {
       setLoading(false);

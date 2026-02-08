@@ -12,43 +12,36 @@ const AppContextProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // ✅ getFrontendOrigin function
-  const getFrontendOrigin = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      return window.location.origin;
-    }
-    return "https://otpverification-nfgo.onrender.com";
-  }, []);
-
-  // ✅ Function to create axios instance with proper headers
+  // ✅ FIXED: createAxiosInstance WITHOUT Origin header
   const createAxiosInstance = useCallback(() => {
-    const frontendOrigin = getFrontendOrigin();
+    console.log("🔧 Creating axios instance for:", backendUrl);
     
     return axios.create({
       baseURL: backendUrl,
-      withCredentials: true,
+      withCredentials: true, // ✅ IMPORTANT: This sends cookies
+      timeout: 30000, // ✅ 30 seconds timeout
       headers: {
-        'Origin': frontendOrigin,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      timeout: 10000
+        // ❌ REMOVED: 'Origin' header - browser automatically sets it
+      }
     });
-  }, [getFrontendOrigin]);
+  }, [backendUrl]);
 
   // ✅ Global axios configuration
   useEffect(() => {
-    const axiosInstance = createAxiosInstance();
+    console.log("🌐 Initializing axios configuration");
     
-    // Set as default
-    axios.defaults = axiosInstance.defaults;
+    // Set default configuration
+    axios.defaults.baseURL = backendUrl;
+    axios.defaults.withCredentials = true;
+    axios.defaults.timeout = 30000;
+    axios.defaults.headers.common['Content-Type'] = 'application/json';
+    axios.defaults.headers.common['Accept'] = 'application/json';
     
-    console.log("🌐 Frontend Origin:", getFrontendOrigin());
-    console.log("🔗 Backend URL:", backendUrl);
-    
-  }, [createAxiosInstance, getFrontendOrigin]);
+  }, [backendUrl]);
 
-  // ✅ getUserData function - FIXED
+  // ✅ getUserData function
   const getUserData = useCallback(async () => {
     try {
       console.log("📡 Fetching user data...");
@@ -61,7 +54,7 @@ const AppContextProvider = ({ children }) => {
         setUserData(data.userData);
         localStorage.setItem('user', JSON.stringify(data.userData));
         console.log("✅ User data loaded:", data.userData.email);
-        return data.userData; // Return user data
+        return data.userData;
       } else {
         console.log("❌ No user data in response");
         setIsLoggedin(false);
@@ -72,9 +65,8 @@ const AppContextProvider = ({ children }) => {
     } catch (error) {
       console.error("❌ Get user data error:", error);
       
-      // Check if it's a 401 error (unauthorized)
       if (error.response?.status === 401) {
-        console.log("🔒 User not authenticated, clearing session");
+        console.log("🔒 User not authenticated");
         setIsLoggedin(false);
         setUserData(null);
         localStorage.removeItem('user');
@@ -87,7 +79,6 @@ const AppContextProvider = ({ children }) => {
   const getAuthState = async () => {
     try {
       console.log("🔄 Checking authentication...");
-      console.log("🍪 Current cookies:", document.cookie);
       
       const axiosInstance = createAxiosInstance();
       const { data } = await axiosInstance.get('/api/auth/is-auth');
@@ -102,8 +93,6 @@ const AppContextProvider = ({ children }) => {
         console.log("🔒 User is NOT authenticated:", data.message);
         setIsLoggedin(false);
         setUserData(null);
-        
-        // Clear localStorage if not authenticated
         localStorage.removeItem('user');
         localStorage.removeItem('auth_token');
       }
@@ -111,7 +100,12 @@ const AppContextProvider = ({ children }) => {
     } catch (error) {
       console.error("❌ Auth check error:", error);
       
-      // Special handling for cookie issues
+      // Special handling for timeout
+      if (error.code === 'ECONNABORTED') {
+        console.log("⏰ Request timeout - server might be slow");
+        toast.warning("Server is taking longer than usual to respond");
+      }
+      
       if (error.message.includes("Network Error") || error.code === "ERR_NETWORK") {
         console.log("🔒 Trying localStorage fallback...");
         const localUser = localStorage.getItem('user');
@@ -147,17 +141,9 @@ const AppContextProvider = ({ children }) => {
       localStorage.removeItem('user');
       localStorage.removeItem('auth_token');
       
-      // Clear all cookies
-      document.cookie.split(";").forEach(cookie => {
-        const eqPos = cookie.indexOf("=");
-        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      });
-      
       toast.success("Logged out successfully");
     } catch (error) {
       console.error("Logout error:", error);
-      // Force logout anyway
       setIsLoggedin(false);
       setUserData(null);
       localStorage.removeItem('user');
@@ -172,13 +158,12 @@ const AppContextProvider = ({ children }) => {
     setIsLoggedin,
     userData,
     setUserData,
-    getUserData, // ✅ Export the fixed function
+    getUserData,
     loading,
     getAuthState,
     authChecked,
     logout,
-    getFrontendOrigin,
-    createAxiosInstance // Export for other components
+    createAxiosInstance
   };
 
   return (
